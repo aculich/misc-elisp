@@ -1,3 +1,84 @@
+;;; query-html.el --- quick hack to use YQL or tidy/xmlstarlet for HTML parsing
+
+;; Copyright (C) 2010  Aaron Culich <aculich@gmail.com>
+
+;; Author: Aaron Culich <aculich@gmail.com>
+;; Maintainer: Aaron Culich <aculich@gmail.com>
+;; Keywords: xpath, yql
+;; URL: http://github.com/aculich/misc-elisp/blob/master/query-html.el
+
+;; This file is NOT part of GNU Emacs.
+
+;; This is free software; you can redistribute it and/or modify it under
+;; the terms of the GNU General Public License as published by the Free
+;; Software Foundation; either version 2, or (at your option) any later
+;; version.
+
+;; This is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with GNU Emacs; see the file COPYING.  If not, write to the
+;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
+
+;; Sometimes you can get away with using a quick little regular
+;; expression on some HTML fragment, but that is just the first step
+;; down the path to madness:
+;;
+;; http://www.codinghorror.com/blog/2009/11/parsing-html-the-cthulhu-way.html
+;;
+;; So, if you'd like to stay sane, then use xpath. This is a small
+;; hack to use YQL or tidy/xmlstarlet for parsing HTML. It is very
+;; rudimentary, but gets the job done and can easily be bound to a key
+;; or added to w3m-display-hook.
+;;
+;; To use it just put this file in your load-path and eval:
+;;
+;; (require 'query-html)
+;;
+;; By default you can use the 'yql method without installing anything
+;; else, however if you want to do local processing with the 'shell
+;; method you'll need to first install wget, tidy, and xmlstarlet
+
+;;; Examples:
+
+;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20")        ;; defaults to 'yql
+;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20" 'yql)   ;; calling with 'yql is the same above since it is the default
+;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20" 'shell) ;; requires wget, tidy, and xmlstarlet
+;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20" 'elisp) ;; requires dom.el and xpath.el (which is broken!)
+
+;;; Notes:
+
+;; Keep in mind this is just a quick little hack. The xpath
+;; expressions are very limited in this version just to keep things
+;; simple. If I actually use this more myself I may think about making
+;; that part more generalized. If you want to hack on it, just fork on
+;; github and send me pull requests.
+
+;; Example of JSON results returned from YQL
+;;
+;; ((query
+;;  (results
+;;   (span
+;;    (content . \"Dr. Strangelove, Or: How I Learned\\n        to Stop Worrying and Love the Bomb (Special Edition)\\n        (1964)\")
+;;    (id . \"btAsinTitle\")))
+;;  (lang . \"en-US\")
+;;  (created . \"2010-11-05T14:58:44Z\")
+;;  (count . \"2\")))
+
+;; NOTE: There is a tidy.el file on emacswiki:
+;;
+;; http://www.emacswiki.org/cgi-bin/wiki/download/tidy.el
+;;
+;; however, it is currently only useful for tidying up the content of
+;; a buffer, not for use in a pipeline, but could be refactored to be
+;; more useful
+
 (require 'url)
 (require 'w3m)
 (require 'json)
@@ -26,7 +107,7 @@ fix all the problems with that package."))
 
 (defun query-html-shell (url &optional xpath)
   "Get the title of an Amazon movie found at URL.
-Requires `wget', `tidy', and `xmlstarproc' to be available on the
+Requires `wget', `tidy', and `xmlstarlet' to be available on the
 system."
   (let* ((wget (format local-wget-command url))                           ;; output the web page to stdout
          (tidy local-tidy-command)                                        ;; fix all the broken html and output as an xml document
@@ -86,31 +167,4 @@ platforms."
           (xpath "%sspan[@id='btAsinTitle']"))
       (query-html method url xpath)))))
 
-;;;;;;;;;;;;;;
-;; ;; Examples
-;;
-;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20")
-;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20" 'yql)
-;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20" 'shell)
-;; (query-html-amazon-title "http://www.amazon.com/dp/B000055Y0X/?tag=xahh-20" 'elisp)
-
 (provide 'query-html)
-
-;; JSON results returned from YQL
-;;
-;; ((query
-;;  (results
-;;   (span
-;;    (content . \"Dr. Strangelove, Or: How I Learned\\n        to Stop Worrying and Love the Bomb (Special Edition)\\n        (1964)\")
-;;    (id . \"btAsinTitle\")))
-;;  (lang . \"en-US\")
-;;  (created . \"2010-11-05T14:58:44Z\")
-;;  (count . \"2\")))
-
-;; NOTE: There is a tidy.el file on emacswiki:
-;;
-;; http://www.emacswiki.org/cgi-bin/wiki/download/tidy.el
-;;
-;; however, it is currently only useful for tidying up the content of
-;; a buffer, not for use in a pipeline, but could be refactored to be
-;; more useful
